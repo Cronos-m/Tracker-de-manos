@@ -353,7 +353,7 @@
                 const x = tip.x * w;
                 const y = tip.y * h;
                 canvasCtx.beginPath();
-                canvasCtx.arc(x, y, 25, 0, 2 * Math.PI);
+                canvasCtx.arc(x, y, 5, 0, 2 * Math.PI);
                 canvasCtx.strokeStyle = "#ff0000";
                 canvasCtx.lineWidth = 4;
                 canvasCtx.stroke();
