@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Tracker de Gestos</title>
+
+    <link rel="stylesheet" href="style.css" />
+
+    <!--
+        MediaPipe Hands: detecta los 21 puntos clave de la mano.
+        Se carga desde CDN. Gratuita, sin API key.
+    -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+</head>
+<body>
+
+    <!--
+        Contenedor principal.
+        - <video>: stream de la cámara.
+        - <canvas>: dibujamos encima los landmarks y los efectos visuales.
+    -->
+    <div id="camera-container">
+        <video id="camera-video" autoplay playsinline muted></video>
+        <canvas id="overlay-canvas"></canvas>
+    </div>
+
+    <!--
+        Panel informativo superior.
+        Muestra el gesto detectado en tiempo real.
+    -->
+    <div id="gesture-panel" class="hidden">
+        <div id="gesture-name">---</div>
+        <div id="gesture-detail"></div>
+    </div>
+
+    <!--
+        Leyenda de gestos reconocidos.
+        Ayuda al mago a saber qué gestos puede hacer.
+    -->
+    <div id="legend">
+        <div class="legend-title">Gestos</div>
+        <div class="legend-item">Puño</div>
+        <div class="legend-item">Mano abierta</div>
+        <div class="legend-item">Apuntar</div>
+        <div class="legend-item">Paz</div>
+        <div class="legend-item">Tres</div>
+        <div class="legend-item">Cuatro</div>
+        <div class="legend-item">Pulgar arriba</div>
+        <div class="legend-item">Cuernos</div>
+        <div class="legend-item">Pinza</div>
+    </div>
+
+    <!-- Mensaje de estado (carga, errores) -->
+    <div id="status-message" class="status hidden">
+        <p id="status-text"></p>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
