@@ -43,33 +43,70 @@ html, body {
     transform: scaleX(-1);
 }
 
-/* Panel del gesto detectado */
-#gesture-panel {
+/* Colores distintivos para cada mano */
+.hand-1-color {
+    color: #00e676;
+}
+
+.hand-2-color {
+    color: #2196f3;
+}
+
+/* Panel de gesto combinado */
+#combined-gesture-panel {
     position: absolute;
     top: 20px;
     left: 50%;
     transform: translateX(-50%);
-    background-color: rgba(0, 0, 0, 0.75);
-    border: 2px solid #00e676;
-    padding: 12px 24px;
+    background-color: rgba(0, 0, 0, 0.85);
+    border: 2px solid #ff9800;
+    padding: 12px 28px;
     border-radius: 12px;
     text-align: center;
-    z-index: 20;
-    min-width: 200px;
-    box-shadow: 0 4px 16px rgba(0, 230, 118, 0.3);
+    z-index: 25;
+    box-shadow: 0 4px 16px rgba(255, 152, 0, 0.4);
+    animation: pulse-combined 1.5s infinite;
 }
 
-#gesture-name {
-    font-size: 24px;
+#combined-gesture-name {
+    font-size: 22px;
     font-weight: bold;
-    color: #00e676;
+    color: #ff9800;
     letter-spacing: 1px;
-    margin-bottom: 4px;
 }
 
-#gesture-detail {
-    font-size: 13px;
-    color: #ccc;
+@keyframes pulse-combined {
+    0%, 100% {
+        box-shadow: 0 4px 16px rgba(255, 152, 0, 0.4);
+    }
+    50% {
+        box-shadow: 0 4px 24px rgba(255, 152, 0, 0.7);
+    }
+}
+
+/* Panel de gestos individuales */
+#gesture-panel {
+    position: absolute;
+    top: 90px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 10px 20px;
+    border-radius: 10px;
+    text-align: center;
+    z-index: 20;
+    min-width: 220px;
+}
+
+.hand-info {
+    font-size: 16px;
+    padding: 4px 0;
+}
+
+.hand-label {
+    font-weight: bold;
+    margin-right: 8px;
 }
 
 /* Leyenda de gestos */
@@ -81,20 +118,31 @@ html, body {
     padding: 12px 16px;
     border-radius: 10px;
     z-index: 20;
-    max-width: 200px;
+    max-width: 220px;
 }
 
 .legend-title {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: bold;
     color: #00e676;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
+    margin-top: 10px;
     text-transform: uppercase;
     letter-spacing: 1px;
 }
 
+.legend-title:first-child {
+    margin-top: 0;
+}
+
+.legend-combined-title {
+    color: #ff9800;
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    padding-top: 8px;
+}
+
 .legend-item {
-    font-size: 13px;
+    font-size: 12px;
     color: #fff;
     padding: 3px 0;
     border-left: 3px solid transparent;
@@ -102,11 +150,21 @@ html, body {
     transition: all 0.2s ease;
 }
 
+.legend-item.legend-combined {
+    color: #ccc;
+    font-size: 11px;
+}
+
 /* Cuando un gesto está activo, se resalta en la leyenda */
 .legend-item.active {
     color: #00e676;
     border-left-color: #00e676;
     font-weight: bold;
+}
+
+.legend-item.legend-combined.active {
+    color: #ff9800;
+    border-left-color: #ff9800;
 }
 
 /* Mensaje de estado */

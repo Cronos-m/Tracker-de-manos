@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Tracker de Gestos</title>
+    <title>Tracker de Gestos — 2 Manos</title>
 
     <link rel="stylesheet" href="style.css" />
 
     <!--
-        MediaPipe Hands: detecta los 21 puntos clave de la mano.
-        Se carga desde CDN. Gratuita, sin API key.
+        MediaPipe Hands: detecta los 21 puntos clave de cada mano.
+        Soporta hasta 2 manos simultáneas.
     -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
@@ -18,31 +18,38 @@
 </head>
 <body>
 
-    <!--
-        Contenedor principal.
-        - <video>: stream de la cámara.
-        - <canvas>: dibujamos encima los landmarks y los efectos visuales.
-    -->
+    <!-- Contenedor principal -->
     <div id="camera-container">
         <video id="camera-video" autoplay playsinline muted></video>
         <canvas id="overlay-canvas"></canvas>
     </div>
 
     <!--
-        Panel informativo superior.
-        Muestra el gesto detectado en tiempo real.
+        Panel de gesto combinado.
+        Aparece solo cuando se detecta un gesto que requiere las dos manos.
     -->
-    <div id="gesture-panel" class="hidden">
-        <div id="gesture-name">---</div>
-        <div id="gesture-detail"></div>
+    <div id="combined-gesture-panel" class="hidden">
+        <div id="combined-gesture-name">---</div>
     </div>
 
     <!--
-        Leyenda de gestos reconocidos.
-        Ayuda al mago a saber qué gestos puede hacer.
+        Panel de gestos individuales.
+        Muestra el gesto de cada mano detectada.
     -->
+    <div id="gesture-panel" class="hidden">
+        <div class="hand-info" id="hand-1-info">
+            <span class="hand-label hand-1-color">Mano 1:</span>
+            <span id="hand-1-gesture">---</span>
+        </div>
+        <div class="hand-info hidden" id="hand-2-info">
+            <span class="hand-label hand-2-color">Mano 2:</span>
+            <span id="hand-2-gesture">---</span>
+        </div>
+    </div>
+
+    <!-- Leyenda de gestos -->
     <div id="legend">
-        <div class="legend-title">Gestos</div>
+        <div class="legend-title">Gestos individuales</div>
         <div class="legend-item">Puño</div>
         <div class="legend-item">Mano abierta</div>
         <div class="legend-item">Apuntar</div>
@@ -52,9 +59,15 @@
         <div class="legend-item">Pulgar arriba</div>
         <div class="legend-item">Cuernos</div>
         <div class="legend-item">Pinza</div>
+
+        <div class="legend-title legend-combined-title">Gestos combinados</div>
+        <div class="legend-item legend-combined">Ocultar (ambas puño)</div>
+        <div class="legend-item legend-combined">Revelar (ambas abiertas)</div>
+        <div class="legend-item legend-combined">Transformar (abierta + puño)</div>
+        <div class="legend-item legend-combined">Unir (ambas apuntando)</div>
     </div>
 
-    <!-- Mensaje de estado (carga, errores) -->
+    <!-- Mensaje de estado -->
     <div id="status-message" class="status hidden">
         <p id="status-text"></p>
     </div>

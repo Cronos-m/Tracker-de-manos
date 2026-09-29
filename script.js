@@ -1,37 +1,22 @@
 /**
  * ============================================================
- *  TRACKER DE GESTOS DE LA MANO
- *  Reconocimiento de múltiples gestos usando MediaPipe Hands.
+ *  TRACKER DE GESTOS — 2 MANOS
+ *  Reconocimiento de gestos individuales y combinados usando
+ *  MediaPipe Hands con detección de hasta 2 manos simultáneas.
  * ============================================================
  *
  *  Arquitectura:
- *    1. MediaPipe Hands detecta 21 landmarks de la mano.
- *    2. getExtendedFingers() analiza qué dedos están extendidos.
- *    3. recognizeGesture() clasifica el gesto según la combinación.
- *    4. Se dibuja en pantalla el resultado.
+ *    1. MediaPipe Hands detecta hasta 2 manos (21 landmarks cada una).
+ *    2. Para cada mano:
+ *       - Se analizan los dedos extendidos.
+ *       - Se clasifica el gesto individual.
+ *    3. Si hay 2 manos, se intenta clasificar un gesto combinado.
+ *    4. Se dibuja el esqueleto de cada mano con color distintivo.
+ *    5. Se muestra la información en pantalla.
  *
- *  Landmarks de MediaPipe Hands (21 puntos):
- *    0  : muñeca
- *    1  : base del pulgar (CMC)
- *    2  : articulación media del pulgar (MCP)
- *    3  : articulación intermedia del pulgar (IP)
- *    4  : punta del pulgar
- *    5  : base del índice (MCP)
- *    6  : articulación media del índice (PIP)
- *    7  : articulación distal del índice (DIP)
- *    8  : punta del índice
- *    9  : base del medio (MCP)
- *    10 : articulación media del medio (PIP)
- *    11 : articulación distal del medio (DIP)
- *    12 : punta del medio
- *    13 : base del anular (MCP)
- *    14 : articulación media del anular (PIP)
- *    15 : articulación distal del anular (DIP)
- *    16 : punta del anular
- *    17 : base del meñique (MCP)
- *    18 : articulación media del meñique (PIP)
- *    19 : articulación distal del meñique (DIP)
- *    20 : punta del meñique
+ *  Colores distintivos:
+ *    - Mano 1 (izquierda en pantalla): verde (#00e676)
+ *    - Mano 2 (derecha en pantalla): azul (#2196f3)
  */
 
 (function () {
@@ -43,18 +28,24 @@
     const videoElement = document.getElementById("camera-video");
     const canvasElement = document.getElementById("overlay-canvas");
     const canvasCtx = canvasElement.getContext("2d");
+    const combinedGesturePanel = document.getElementById("combined-gesture-panel");
+    const combinedGestureName = document.getElementById("combined-gesture-name");
     const gesturePanel = document.getElementById("gesture-panel");
-    const gestureName = document.getElementById("gesture-name");
-    const gestureDetail = document.getElementById("gesture-detail");
+    const hand1Info = document.getElementById("hand-1-info");
+    const hand1Gesture = document.getElementById("hand-1-gesture");
+    const hand2Info = document.getElementById("hand-2-info");
+    const hand2Gesture = document.getElementById("hand-2-gesture");
     const statusMessage = document.getElementById("status-message");
     const statusText = document.getElementById("status-text");
     const legendItems = document.querySelectorAll(".legend-item");
 
+    // Colores para cada mano
+    const HAND_COLORS = ["#00e676", "#2196f3"];
+
     // --------------------------------------------------------
     //  Estado
     // --------------------------------------------------------
-    let currentGesture = "NINGUNO";
-    let lastGesture = "NINGUNO";
+    let lastCombinedGesture = "NINGUNO";
 
     // --------------------------------------------------------
     //  Funciones auxiliares de UI
@@ -69,45 +60,88 @@
     }
 
     /**
-     * Actualiza el panel del gesto y resalta el elemento
-     * correspondiente en la leyenda.
+     * Actualiza el panel de gestos individuales.
      *
-     * @param {string} gestureNameText - Nombre del gesto.
-     * @param {string} detail - Detalle adicional (dedos extendidos).
+     * @param {Array} handsData - Array con la info de cada mano detectada.
      */
-    function updateGestureUI(gestureNameText, detail) {
-        gestureName.textContent = gestureNameText;
-        gestureDetail.textContent = detail;
+    function updateHandsUI(handsData) {
         gesturePanel.classList.remove("hidden");
 
-        // Resaltar en la leyenda el gesto activo
-        legendItems.forEach(function (item) {
-            if (item.textContent.toLowerCase() === gestureNameText.toLowerCase()) {
-                item.classList.add("active");
-            } else {
-                item.classList.remove("active");
-            }
-        });
+        // Mano 1 (siempre visible si hay al menos una mano)
+        hand1Info.classList.remove("hidden");
+        hand1Gesture.textContent = handsData[0].gesture.name;
+
+        // Mano 2 (solo si hay dos manos)
+        if (handsData.length >= 2) {
+            hand2Info.classList.remove("hidden");
+            hand2Gesture.textContent = handsData[1].gesture.name;
+        } else {
+            hand2Info.classList.add("hidden");
+        }
     }
 
-    function hideGestureUI() {
+    function hideHandsUI() {
         gesturePanel.classList.add("hidden");
+    }
+
+    /**
+     * Actualiza el panel de gesto combinado.
+     *
+     * @param {string|null} combinedGesture - Nombre del gesto combinado, o null.
+     */
+    function updateCombinedUI(combinedGesture) {
+        if (combinedGesture && combinedGesture !== "NINGUNO") {
+            combinedGestureName.textContent = combinedGesture;
+            combinedGesturePanel.classList.remove("hidden");
+
+            if (combinedGesture !== lastCombinedGesture) {
+                console.log("[Gesto combinado]", combinedGesture);
+                lastCombinedGesture = combinedGesture;
+            }
+        } else {
+            combinedGesturePanel.classList.add("hidden");
+            if (lastCombinedGesture !== "NINGUNO") {
+                lastCombinedGesture = "NINGUNO";
+            }
+        }
+    }
+
+    /**
+     * Resalta en la leyenda los gestos activos.
+     *
+     * @param {Array} handsData - Info de cada mano.
+     * @param {string|null} combinedGesture - Gesto combinado activo.
+     */
+    function updateLegend(handsData, combinedGesture) {
+        // Limpiar todos los resaltados
         legendItems.forEach(function (item) {
             item.classList.remove("active");
         });
+
+        // Resaltar gestos individuales
+        handsData.forEach(function (hand) {
+            legendItems.forEach(function (item) {
+                if (item.textContent.toLowerCase() === hand.gesture.name.toLowerCase()) {
+                    item.classList.add("active");
+                }
+            });
+        });
+
+        // Resaltar gesto combinado
+        if (combinedGesture && combinedGesture !== "NINGUNO") {
+            legendItems.forEach(function (item) {
+                const itemText = item.textContent.toLowerCase();
+                // Los gestos combinados en la leyenda tienen el formato "Nombre (descripción)"
+                if (itemText.startsWith(combinedGesture.toLowerCase())) {
+                    item.classList.add("active");
+                }
+            });
+        }
     }
 
     // --------------------------------------------------------
     //  Utilidades matemáticas
     // --------------------------------------------------------
-    /**
-     * Calcula la distancia euclídea entre dos puntos.
-     * Cada punto tiene coordenadas x, y (normalizadas entre 0 y 1).
-     *
-     * @param {Object} p1 - Primer punto {x, y}.
-     * @param {Object} p2 - Segundo punto {x, y}.
-     * @returns {number} Distancia.
-     */
     function distance(p1, p2) {
         const dx = p1.x - p2.x;
         const dy = p1.y - p2.y;
@@ -119,36 +153,23 @@
     // --------------------------------------------------------
     /**
      * Determina qué dedos de la mano están extendidos.
-     *
-     * Método para los cuatro dedos (índice, medio, anular, meñique):
-     *   Un dedo está extendido si su punta está más lejos de la muñeca
-     *   que su articulación PIP. Esto funciona sin importar la
-     *   orientación de la mano.
-     *
-     * Método para el pulgar:
-     *   Comparamos la distancia horizontal de la punta del pulgar
-     *   respecto a la articulación IP, en relación con el dedo índice.
-     *   Esto funciona tanto con palma hacia la cámara como dorso.
+     * Funciona sin importar la orientación de la mano.
      *
      * @param {Array} landmarks - 21 puntos de la mano.
-     * @param {string} handedness - "Left" o "Right" (mano detectada).
-     * @returns {Array} Array de 5 booleanos:
-     *                  [pulgar, índice, medio, anular, meñique].
+     * @param {string} handedness - "Left" o "Right" (lateralidad de la mano).
+     * @returns {Array} Array de 5 booleanos: [pulgar, índice, medio, anular, meñique].
      */
     function getExtendedFingers(landmarks, handedness) {
         const fingers = [false, false, false, false, false];
-
-        // Índices de los landmarks
         const WRIST = 0;
 
-        // --- Dedos: índice, medio, anular, meñique ---
-        // Para cada dedo comparamos la punta con la articulación PIP.
-        // Si la punta está más lejos de la muñeca que el PIP, está extendido.
+        // Dedos: índice, medio, anular, meñique
+        // Un dedo está extendido si su punta está más lejos de la muñeca que su PIP.
         const fingerPairs = [
-            { tip: 8,  pip: 6  }, // índice
-            { tip: 12, pip: 10 }, // medio
-            { tip: 16, pip: 14 }, // anular
-            { tip: 20, pip: 18 }  // meñique
+            { tip: 8,  pip: 6  },
+            { tip: 12, pip: 10 },
+            { tip: 16, pip: 14 },
+            { tip: 20, pip: 18 }
         ];
 
         for (let i = 0; i < fingerPairs.length; i++) {
@@ -158,31 +179,20 @@
             fingers[i + 1] = distTip > distPip;
         }
 
-        // --- Pulgar ---
-        // El pulgar se mueve lateralmente, no verticalmente como los otros.
-        // Comparamos la posición X de la punta del pulgar (4) respecto
-        // a su articulación IP (3), teniendo en cuenta si es mano
-        // izquierda o derecha.
+        // Pulgar: método basado en posición lateral
         const thumbTip = landmarks[4];
         const thumbIp = landmarks[3];
-        const thumbMcp = landmarks[2];
         const indexMcp = landmarks[5];
 
-        // Determinamos la dirección "hacia fuera" de la mano
-        // según si es izquierda o derecha.
-        // Nota: MediaPipe devuelve la mano desde su perspectiva,
-        // que es la inversa de la nuestra (por el efecto espejo).
         let thumbExtended;
         if (handedness === "Right") {
-            // Mano derecha: el pulgar apunta a la derecha de la imagen
             thumbExtended = thumbTip.x < thumbIp.x;
         } else {
-            // Mano izquierda: el pulgar apunta a la izquierda
             thumbExtended = thumbTip.x > thumbIp.x;
         }
 
-        // Comprobación adicional: si el pulgar está claramente
-        // más lejos de la muñeca que el MCP del índice, está extendido.
+        // Fallback: si la punta del pulgar está significativamente más lejos
+        // de la muñeca que el MCP del índice, consideramos que está extendido.
         const distThumbTip = distance(thumbTip, landmarks[WRIST]);
         const distIndexMcp = distance(indexMcp, landmarks[WRIST]);
         if (distThumbTip > distIndexMcp * 1.1) {
@@ -195,25 +205,19 @@
     }
 
     // --------------------------------------------------------
-    //  Reconocimiento del gesto
+    //  Reconocimiento de gestos individuales
     // --------------------------------------------------------
     /**
-     * Clasifica el gesto según qué dedos están extendidos.
+     * Clasifica el gesto de una mano según qué dedos están extendidos.
      *
      * @param {Array} fingers - Array de 5 booleanos.
-     * @param {Array} landmarks - 21 puntos de la mano (para gestos
-     *                             que necesitan posición relativa,
-     *                             como la pinza).
-     * @returns {Object} { name, detail } con el nombre del gesto
-     *                   y una descripción de los dedos extendidos.
+     * @param {Array} landmarks - 21 puntos de la mano.
+     * @returns {Object} { name, detail }
      */
     function recognizeGesture(fingers, landmarks) {
         const [thumb, index, middle, ring, pinky] = fingers;
-
-        // Contamos cuántos dedos están extendidos
         const extendedCount = fingers.filter(Boolean).length;
 
-        // Descripción para el detalle
         const fingerNames = ["pulgar", "índice", "medio", "anular", "meñique"];
         const extendedNames = fingers
             .map((ext, i) => ext ? fingerNames[i] : null)
@@ -222,12 +226,7 @@
             ? "Extendidos: " + extendedNames.join(", ")
             : "Ningún dedo extendido";
 
-        // --- Reglas de clasificación ---
-        // El orden importa: las reglas más específicas van primero.
-
         // PINZA: pulgar e índice muy juntos, resto extendidos
-        // Detectamos si la punta del pulgar (4) y la del índice (8)
-        // están muy cerca una de la otra.
         const thumbTip = landmarks[4];
         const indexTip = landmarks[8];
         const pinchDistance = distance(thumbTip, indexTip);
@@ -236,80 +235,113 @@
             return { name: "PINZA", detail: detail };
         }
 
-        // PUÑO: ningún dedo extendido
+        // PUÑO
         if (extendedCount === 0) {
             return { name: "PUÑO", detail: detail };
         }
 
-        // MANO ABIERTA: todos los dedos extendidos
+        // MANO ABIERTA
         if (extendedCount === 5) {
             return { name: "MANO ABIERTA", detail: detail };
         }
 
-        // APUNTAR: solo índice extendido
+        // APUNTAR
         if (index && !middle && !ring && !pinky && !thumb) {
             return { name: "APUNTAR", detail: detail };
         }
 
-        // PAZ: índice y medio extendidos, resto cerrados
+        // PAZ
         if (index && middle && !ring && !pinky && !thumb) {
             return { name: "PAZ", detail: detail };
         }
 
-        // TRES: índice, medio y anular extendidos
+        // TRES
         if (index && middle && ring && !pinky && !thumb) {
             return { name: "TRES", detail: detail };
         }
 
-        // CUATRO: todos menos el pulgar
+        // CUATRO
         if (index && middle && ring && pinky && !thumb) {
             return { name: "CUATRO", detail: detail };
         }
 
-        // PULGAR ARRIBA: solo pulgar extendido
+        // PULGAR ARRIBA
         if (thumb && !index && !middle && !ring && !pinky) {
             return { name: "PULGAR ARRIBA", detail: detail };
         }
 
-        // CUERNOS: índice y meñique extendidos, resto cerrados
+        // CUERNOS
         if (index && !middle && !ring && pinky) {
             return { name: "CUERNOS", detail: detail };
         }
 
-        // Si no coincide con ningún gesto conocido
         return { name: "DESCONOCIDO", detail: detail };
+    }
+
+    // --------------------------------------------------------
+    //  Reconocimiento de gestos combinados (2 manos)
+    // --------------------------------------------------------
+    /**
+     * Clasifica el gesto combinado según los gestos de ambas manos.
+     *
+     * @param {string} gesture1 - Gesto de la mano 1.
+     * @param {string} gesture2 - Gesto de la mano 2.
+     * @returns {string|null} Nombre del gesto combinado, o null si no hay.
+     */
+    function recognizeCombinedGesture(gesture1, gesture2) {
+        // Normalizamos para que el orden no importe
+        const gestures = [gesture1, gesture2].sort();
+
+        // OCULTAR: ambas manos en puño
+        if (gestures[0] === "PUÑO" && gestures[1] === "PUÑO") {
+            return "OCULTAR";
+        }
+
+        // REVELAR: ambas manos abiertas
+        if (gestures[0] === "MANO ABIERTA" && gestures[1] === "MANO ABIERTA") {
+            return "REVELAR";
+        }
+
+        // TRANSFORMAR: una abierta y otra en puño
+        if (gestures[0] === "MANO ABIERTA" && gestures[1] === "PUÑO") {
+            return "TRANSFORMAR";
+        }
+
+        // UNIR: ambas manos apuntando
+        if (gestures[0] === "APUNTAR" && gestures[1] === "APUNTAR") {
+            return "UNIR";
+        }
+
+        return null;
     }
 
     // --------------------------------------------------------
     //  Dibujo en el canvas
     // --------------------------------------------------------
     /**
-     * Dibuja los landmarks de la mano y un efecto visual
-     * según el gesto detectado.
+     * Dibuja el esqueleto de una mano y su efecto visual.
      *
      * @param {Array} landmarks - 21 puntos de la mano.
      * @param {string} gesture - Nombre del gesto detectado.
+     * @param {number} handIndex - Índice de la mano (0 o 1).
      */
-    function drawOverlay(landmarks, gesture) {
-        // Limpiamos el canvas
-        canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-
-        // Convertimos las coordenadas normalizadas a píxeles
+    function drawOverlay(landmarks, gesture, handIndex) {
         const w = canvasElement.width;
         const h = canvasElement.height;
+        const color = HAND_COLORS[handIndex];
 
-        // --- Dibujar conexiones entre landmarks (esqueleto) ---
-        canvasCtx.strokeStyle = "rgba(0, 230, 118, 0.6)";
+        // --- Esqueleto (conexiones) ---
+        canvasCtx.strokeStyle = color;
+        canvasCtx.globalAlpha = 0.6;
         canvasCtx.lineWidth = 2;
 
-        // Conexiones de los dedos (definidas por MediaPipe)
         const connections = [
-            [0, 1], [1, 2], [2, 3], [3, 4],       // pulgar
-            [0, 5], [5, 6], [6, 7], [7, 8],       // índice
-            [0, 9], [9, 10], [10, 11], [11, 12],  // medio
-            [0, 13], [13, 14], [14, 15], [15, 16], // anular
-            [0, 17], [17, 18], [18, 19], [19, 20], // meñique
-            [5, 9], [9, 13], [13, 17]              // palma
+            [0, 1], [1, 2], [2, 3], [3, 4],
+            [0, 5], [5, 6], [6, 7], [7, 8],
+            [0, 9], [9, 10], [10, 11], [11, 12],
+            [0, 13], [13, 14], [14, 15], [15, 16],
+            [0, 17], [17, 18], [18, 19], [19, 20],
+            [5, 9], [9, 13], [13, 17]
         ];
 
         connections.forEach(function (conn) {
@@ -321,39 +353,38 @@
             canvasCtx.stroke();
         });
 
-        // --- Dibujar los landmarks (puntos) ---
+        // --- Landmarks (puntos) ---
+        canvasCtx.globalAlpha = 1.0;
         landmarks.forEach(function (point) {
             canvasCtx.beginPath();
             canvasCtx.arc(point.x * w, point.y * h, 4, 0, 2 * Math.PI);
-            canvasCtx.fillStyle = "#00e676";
+            canvasCtx.fillStyle = color;
             canvasCtx.fill();
         });
 
-        // --- Efecto visual según el gesto ---
-        drawGestureEffect(landmarks, gesture, w, h);
+        // --- Efecto visual del gesto ---
+        drawGestureEffect(landmarks, gesture, w, h, color);
     }
 
     /**
-     * Dibuja un efecto visual diferente según el gesto detectado.
-     * Esto es lo que después sustituiremos por imágenes de cartas,
-     * objetos, etc., en el proyecto final.
+     * Dibuja un efecto visual según el gesto detectado.
      *
      * @param {Array} landmarks - 21 puntos de la mano.
      * @param {string} gesture - Nombre del gesto.
      * @param {number} w - Ancho del canvas.
      * @param {number} h - Alto del canvas.
+     * @param {string} color - Color base para el efecto.
      */
-    function drawGestureEffect(landmarks, gesture, w, h) {
+    function drawGestureEffect(landmarks, gesture, w, h, color) {
         canvasCtx.save();
 
         switch (gesture) {
             case "APUNTAR": {
-                // Círculo rojo en la punta del índice
                 const tip = landmarks[8];
                 const x = tip.x * w;
                 const y = tip.y * h;
                 canvasCtx.beginPath();
-                canvasCtx.arc(x, y, 5, 0, 2 * Math.PI);
+                canvasCtx.arc(x, y, 25, 0, 2 * Math.PI);
                 canvasCtx.strokeStyle = "#ff0000";
                 canvasCtx.lineWidth = 4;
                 canvasCtx.stroke();
@@ -363,7 +394,6 @@
             }
 
             case "PUÑO": {
-                // Cuadrado amarillo en el centro de la palma
                 const palm = landmarks[9];
                 const x = palm.x * w;
                 const y = palm.y * h;
@@ -377,16 +407,14 @@
             }
 
             case "MANO ABIERTA": {
-                // Estrella verde en el centro de la palma
                 const palm = landmarks[9];
                 const x = palm.x * w;
                 const y = palm.y * h;
-                drawStar(x, y, 5, 30, 15, "#00e676");
+                drawStar(x, y, 5, 30, 15, color);
                 break;
             }
 
             case "PAZ": {
-                // Línea entre las puntas del índice y medio
                 const tipIndex = landmarks[8];
                 const tipMiddle = landmarks[12];
                 canvasCtx.beginPath();
@@ -399,7 +427,6 @@
             }
 
             case "PINZA": {
-                // Círculo pequeño entre pulgar e índice
                 const tipThumb = landmarks[4];
                 const tipIndex = landmarks[8];
                 const x = ((tipThumb.x + tipIndex.x) / 2) * w;
@@ -415,7 +442,6 @@
             }
 
             case "PULGAR ARRIBA": {
-                // Flecha verde sobre la punta del pulgar
                 const tip = landmarks[4];
                 const x = tip.x * w;
                 const y = tip.y * h;
@@ -424,13 +450,12 @@
                 canvasCtx.lineTo(x - 15, y - 10);
                 canvasCtx.lineTo(x + 15, y - 10);
                 canvasCtx.closePath();
-                canvasCtx.fillStyle = "#00e676";
+                canvasCtx.fillStyle = color;
                 canvasCtx.fill();
                 break;
             }
 
             case "CUERNOS": {
-                // Dos círculos en las puntas de índice y meñique
                 const tipIndex = landmarks[8];
                 const tipPinky = landmarks[20];
                 [tipIndex, tipPinky].forEach(function (tip) {
@@ -445,8 +470,7 @@
 
             case "TRES":
             case "CUATRO": {
-                // Círculos en las puntas de los dedos extendidos
-                const fingerTips = [8, 12, 16, 20]; // índice, medio, anular, meñique
+                const fingerTips = [8, 12, 16, 20];
                 const fingers = getExtendedFingers(landmarks, "Right");
                 fingerTips.forEach(function (tipIdx, i) {
                     if (fingers[i + 1]) {
@@ -462,34 +486,21 @@
             }
 
             default:
-                // Sin efecto para gestos desconocidos
                 break;
         }
 
         canvasCtx.restore();
     }
 
-    /**
-     * Dibuja una estrella de N puntas.
-     *
-     * @param {number} cx - Centro X.
-     * @param {number} cy - Centro Y.
-     * @param {number} spikes - Número de puntas.
-     * @param {number} outerRadius - Radio exterior.
-     * @param {number} innerRadius - Radio interior.
-     * @param {string} color - Color de relleno.
-     */
     function drawStar(cx, cy, spikes, outerRadius, innerRadius, color) {
         let rot = (Math.PI / 2) * 3;
-        let x = cx;
-        let y = cy;
         const step = Math.PI / spikes;
 
         canvasCtx.beginPath();
         canvasCtx.moveTo(cx, cy - outerRadius);
         for (let i = 0; i < spikes; i++) {
-            x = cx + Math.cos(rot) * outerRadius;
-            y = cy + Math.sin(rot) * outerRadius;
+            let x = cx + Math.cos(rot) * outerRadius;
+            let y = cy + Math.sin(rot) * outerRadius;
             canvasCtx.lineTo(x, y);
             rot += step;
 
@@ -511,8 +522,8 @@
     //  Callback de MediaPipe: se ejecuta en cada frame
     // --------------------------------------------------------
     /**
-     * Recibe los resultados de MediaPipe, detecta el gesto
-     * y actualiza la interfaz.
+     * Recibe los resultados de MediaPipe, procesa cada mano detectada,
+     * clasifica gestos individuales y combinados, y actualiza la UI.
      *
      * @param {Object} results - Resultados de MediaPipe Hands.
      */
@@ -523,43 +534,70 @@
             canvasElement.height = videoElement.videoHeight;
         }
 
-        // Si no hay manos, limpiamos todo
+        // Limpiar el canvas
+        canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+
+        // Si no hay manos, ocultamos todo
         if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
-            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-            hideGestureUI();
-            currentGesture = "NINGUNO";
+            hideHandsUI();
+            updateCombinedUI(null);
+            updateLegend([], null);
             return;
         }
 
-        // Tomamos la primera mano detectada
-        const landmarks = results.multiHandLandmarks[0];
-        // MediaPipe devuelve la lateralidad de la mano
-        // (desde su perspectiva, que es la inversa de la nuestra)
-        const handedness = results.multiHandedness[0].label;
+        // Procesamos cada mano detectada
+        const handsData = [];
 
-        // Detectamos qué dedos están extendidos
-        const fingers = getExtendedFingers(landmarks, handedness);
+        for (let i = 0; i < results.multiHandLandmarks.length; i++) {
+            const landmarks = results.multiHandLandmarks[i];
+            const handedness = results.multiHandedness[i].label;
 
-        // Clasificamos el gesto
-        const gesture = recognizeGesture(fingers, landmarks);
-        currentGesture = gesture.name;
+            // Detectamos dedos extendidos
+            const fingers = getExtendedFingers(landmarks, handedness);
 
-        // Solo actualizamos la UI si el gesto ha cambiado
-        // (evita parpadeos)
-        if (currentGesture !== lastGesture) {
-            console.log("[Gesto]", currentGesture, "-", gesture.detail);
-            lastGesture = currentGesture;
+            // Clasificamos el gesto individual
+            const gesture = recognizeGesture(fingers, landmarks);
+
+            handsData.push({
+                landmarks: landmarks,
+                handedness: handedness,
+                fingers: fingers,
+                gesture: gesture
+            });
         }
 
-        // Actualizamos la interfaz
-        if (currentGesture === "DESCONOCIDO" || currentGesture === "NINGUNO") {
-            hideGestureUI();
-        } else {
-            updateGestureUI(currentGesture, gesture.detail);
+        // Ordenamos las manos por posición X de la muñeca
+        // para que "Mano 1" sea siempre la de la izquierda en pantalla
+        // y "Mano 2" la de la derecha. Esto es consistente para el usuario.
+        handsData.sort(function (a, b) {
+            return a.landmarks[0].x - b.landmarks[0].x;
+        });
+
+        // Detectamos gesto combinado si hay 2 manos
+        let combinedGesture = null;
+        if (handsData.length === 2) {
+            combinedGesture = recognizeCombinedGesture(
+                handsData[0].gesture.name,
+                handsData[1].gesture.name
+            );
         }
 
-        // Dibujamos el overlay
-        drawOverlay(landmarks, currentGesture);
+        // Actualizamos la UI
+        updateHandsUI(handsData);
+        updateCombinedUI(combinedGesture);
+        updateLegend(handsData, combinedGesture);
+
+        // Dibujamos el overlay de cada mano
+        for (let i = 0; i < handsData.length; i++) {
+            drawOverlay(handsData[i].landmarks, handsData[i].gesture.name, i);
+        }
+
+        // Log en consola si cambió algún gesto
+        const gestureSummary = handsData.map(h => h.gesture.name).join(" + ");
+        const fullSummary = combinedGesture ? combinedGesture + " (" + gestureSummary + ")" : gestureSummary;
+        if (fullSummary !== lastCombinedGesture) {
+            console.log("[Gestos]", fullSummary);
+        }
     }
 
     // --------------------------------------------------------
@@ -575,8 +613,9 @@
                 }
             });
 
+            // CAMBIO CLAVE: maxNumHands a 2
             hands.setOptions({
-                maxNumHands: 1,
+                maxNumHands: 2,
                 modelComplexity: 1,
                 minDetectionConfidence: 0.7,
                 minTrackingConfidence: 0.5
@@ -596,7 +635,7 @@
             await camera.start();
 
             hideStatus();
-            console.log("[Tracker] Sistema listo. Prueba los gestos de la leyenda.");
+            console.log("[Tracker] Sistema listo. Detecta hasta 2 manos.");
 
         } catch (error) {
             console.error("[Tracker] Error:", error);
